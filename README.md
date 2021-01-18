@@ -1,2 +1,2 @@
 # taskManager
-Task manager app built with Nodejs
+Task manager rest API built with Nodejs and deployed with Heroku
