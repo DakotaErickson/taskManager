@@ -1,31 +1,9 @@
-
 const request = require('supertest');
-const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const app = require('../src/app.js');
 const User = require('../src/models/user.js');
-const { findById } = require('../src/models/user.js');
+const { userOneId, userOne, setupDatabase} = require('./fixtures/db.js');
 
-
-const userOneId = new mongoose.Types.ObjectId();
-// create a user for testing routes that need authentication
-const userOne = {
-    _id: userOneId,
-    name: 'Test User',
-    email: "test@test.com",
-    password: "testtesttest",
-    tokens: [{
-        token: jwt.sign({ _id: userOneId}, process.env.JWT_SECRET)
-    }]
-}
-
-beforeEach(async () => {
-    // delete every user in the database before each test runs to ensure the test database is consistent
-    await User.deleteMany();
-    
-    // save the test user
-    await new User(userOne).save();
-})
+beforeEach(setupDatabase);
 
 test('Should sign up new user', async () => {
     const response = await request(app)
@@ -175,13 +153,29 @@ test('Should allow update', async () => {
             name: 'Test User Updated'
         })
         .expect(200);
+
+        const user = await User.findById(userOneId);
+        expect(user.name).toBe('Test User Updated');        
 })
 
 test('Should not allow update', async () => {
     await request(app)
         .patch('/users/me')
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .send({
-            name: 'Test User Updated'
+            name: ''
         })
-        .expect(401);
+        .expect(400);
 })
+
+test('Should upload image', async () => {
+    await request(app)
+        .post('/users/me/avatar')
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
+        .attach('avatar', 'tests/fixtures/profile-pic.jpg')
+        .expect(200);
+    // assert that an image was uploaded and a Buffer exists in the db
+    const user = await User.findById(userOneId);
+    expect(user.avatar).toEqual(expect.any(Buffer));
+    
+});
