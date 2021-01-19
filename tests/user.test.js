@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const app = require('../src/app.js');
 const User = require('../src/models/user.js');
+const { findById } = require('../src/models/user.js');
 
 
 const userOneId = new mongoose.Types.ObjectId();
@@ -27,14 +28,29 @@ beforeEach(async () => {
 })
 
 test('Should sign up new user', async () => {
-    await request(app)
+    const response = await request(app)
         .post('/users')
         .send({
             name: 'Dakota',
-            email: 'dakota@exmaple.com',
+            email: 'dakota@example.com',
             password: 'workingexample'
         })
         .expect(201);
+
+        // assert that the database was changed correctly
+        const user = await User.findById(response.body.user._id);
+        expect(user).not.toBeNull();
+
+        // assertions about the response
+        expect(response.body).toMatchObject({
+            user: {
+                name: 'Dakota',
+                email: 'dakota@example.com'
+            },
+            token: user.tokens[0].token
+        });
+        // assert password was hashed
+        expect(user.password).not.toBe('workingexample');
 })
 
 test('Should not allow password = password', async () => {
@@ -60,13 +76,17 @@ test('Should require email', async () => {
 })
 
 test('Should login', async () => {
-    await request(app)
+    const response = await request(app)
         .post('/users/login')
         .send({
             email: userOne.email,
             password: userOne.password
         })
         .expect(200);
+
+        // assertions about the response
+        const user = await User.findById(userOneId);
+        expect(response.body.token).toBe(user.tokens[1].token);
 })
 
 test('Should not login', async () => {
@@ -100,6 +120,10 @@ test('Should delete account', async () => {
         .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .send()
         .expect(200);
+
+        // assert the database was changed correctly
+        const user = await User.findById(userOneId);
+        expect(user).toBeNull();
 })
 
 test('Should not delete account', async () => {
@@ -107,6 +131,10 @@ test('Should not delete account', async () => {
         .delete('/users/me')
         .send()
         .expect(401);
+
+        // assert the database was not changed
+        const user = await User.findById(userOneId);
+        expect(user).not.toBeNull();
 })
 
 test('Should logout', async () => {
