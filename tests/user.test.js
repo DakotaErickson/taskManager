@@ -158,7 +158,7 @@ test('Should allow update', async () => {
         expect(user.name).toBe('Test User Updated');        
 })
 
-test('Should not allow update', async () => {
+test('Should not allow invalid update', async () => {
     await request(app)
         .patch('/users/me')
         .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
@@ -166,6 +166,18 @@ test('Should not allow update', async () => {
             name: ''
         })
         .expect(400);
+})
+
+test('Should not allow unahtenticated update', async () => {
+    await request(app)
+        .patch('/users/me')
+        .send({
+            name: 'Test User Updated'
+        })
+        .expect(401);
+
+        const user = await User.findById(userOneId);
+        expect(user.name).toBe('Test User');        
 })
 
 test('Should upload image', async () => {
